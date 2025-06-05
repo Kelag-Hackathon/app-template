@@ -3,7 +3,7 @@
 This repository provides a starter template for two Blazor .NET apps—**Survey-App** and **Reporting-App**—plus minimal infrastructure code and a Docker Compose file to run a local SQL database. 
 
 ## Repository Setup
-
+```
 app-template (Solution)
 ├── .github
 │   └── workflows                  # CI/CD workflows (GitHub Actions)
@@ -27,7 +27,7 @@ app-template (Solution)
     │   └── Survey-Tests.csproj
     └── Reporting-Tests            # XUnit tests for Reporting-App
         └── Reporting-Tests.csproj
-
+```
 
 
 ## Database Setup
