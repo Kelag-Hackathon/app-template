@@ -1,4 +1,4 @@
-name: Build & Deploy All (Build + Test + Build & Push Containers)
+name: Build & Deploy All
 
 on:
   workflow_dispatch:

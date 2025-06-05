@@ -1,4 +1,4 @@
-name: Build & “Deploy” All (i.e. Build + Push All Containers)
+name: Build & Deploy Reporting-App
 
 on:
   workflow_dispatch:

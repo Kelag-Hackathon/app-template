@@ -6,6 +6,7 @@
 # Build files
 out/
 obj/
+bin/
 Debug/
 
 nuget.config
@@ -430,7 +431,14 @@ tarballs/
 test-results/
 **/bin/
 **/obj/
-
+tests/Survey-App/bin
+tests/Reporting-App/bin
+src/Survey-App/bin
+src/Reporting-App/bin
+tests/Survey-App/obj
+tests/Reporting-App/obj
+src/Survey-App/obj
+src/Reporting-App/obj
 # Mac bundle stuff
 *.dmg
 *.app

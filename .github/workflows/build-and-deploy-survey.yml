@@ -1,4 +1,4 @@
-name: Build & “Deploy” Survey-App (i.e. Build + Push Survey Container)
+name: Build & Deploy Survey-App
 
 on:
   workflow_dispatch:
