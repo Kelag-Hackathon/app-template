@@ -100,3 +100,7 @@ To launch **both** Blazor projects under the debugger in Visual Studio:
      - **Start Without Debugging** (launch without attaching the debugger).
 5. Click **OK** to save.
 6. Press **F5** (or click the Run button) to launch both apps simultaneously. Each app will open in its own browser tab with the debugger attached as configured.
+
+**KEEP IN MIND:** The routes are as follows:
+1. Survey-App: localhost:*port*/survey
+1. Report-App: localhost:*port*/report
