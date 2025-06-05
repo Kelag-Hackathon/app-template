@@ -3,10 +3,9 @@ name: Build & Deploy All
 on:
   workflow_dispatch:
     inputs:
-      teamName:
-        description: 'Team name (e.g. team1)'
-        required: true
-        default: 'team1'
+      name:
+        description: 'Team Name (IMPORTANT)'
+        default: 'test-team'
 
 permissions:
   contents: read
