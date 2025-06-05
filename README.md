@@ -90,7 +90,7 @@ dotnet build
 To launch **both** Blazor projects under the debugger in Visual Studio:
 
 1. Open the solution (`.sln`) in Visual Studio.
-2. In the toolbar, locate the **Run** button (green ▶) and click the small **▼** drop-down arrow next to it.
+2. In the toolbar, locate the **Run** button and click the small drop-down arrow next to it.
 3. Select **“Configure Startup Projects…”** from the menu.
 4. In the dialog that appears:
    - Choose **“Multiple startup projects”**.
