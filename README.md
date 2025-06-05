@@ -6,27 +6,28 @@ This repository provides a starter template for two Blazor .NET apps—**Survey-
 
 app-template (Solution)
 ├── .github
-│ └── workflows # CI/CD workflows (GitHub Actions)
+│   └── workflows                  # CI/CD workflows (GitHub Actions)
 ├── dev
-│ └── docker-compose.yml # Starts a local Azure SQL Edge container
+│   └── docker-compose.yml         # Starts a local Azure SQL Edge container
 ├── Infrastructure
-│ └── main.bicep # Bicep script: Container Apps Environment + Key Vault
+│   └── main.bicep                 # Bicep script: Container Apps Environment + Key Vault
 ├── src
-│ ├── Survey-App # Blazor app “Survey”
-│ │ ├── Database # EF Core code-first (Entities, Migrations)
-│ │ ├── DatabaseContext.cs # DbContext definition
-│ │ ├── Program.cs # App startup, DI, auto-migrations
-│ │ └── Survey-App.csproj # Project file (references EF Core, Blazor, etc.)
-│ │
-│ └── Reporting-App # Blazor app “Reporting”
-│ ├── Program.cs # App startup, DI
-│ └── Reporting-App.csproj # Project file (Blazor, XUnit, etc.)
+│   ├── Survey-App                 # Blazor app “Survey”
+│   │   ├── Database               # EF Core code-first (Entities, Migrations)
+│   │   ├── DatabaseContext.cs     # DbContext definition
+│   │   ├── Program.cs             # App startup, DI, auto-migrations
+│   │   └── Survey-App.csproj      # Project file (references EF Core, Blazor, etc.)
+│   │
+│   └── Reporting-App              # Blazor app “Reporting”
+│       ├── Program.cs             # App startup, DI
+│       └── Reporting-App.csproj   # Project file (Blazor, XUnit, etc.)
 │
 └── tests
-├── Survey-Tests # XUnit tests for Survey-App
-│ └── Survey-Tests.csproj
-└── Reporting-Tests # XUnit tests for Reporting-App
-└── Reporting-Tests.csproj
+    ├── Survey-Tests               # XUnit tests for Survey-App
+    │   └── Survey-Tests.csproj
+    └── Reporting-Tests            # XUnit tests for Reporting-App
+        └── Reporting-Tests.csproj
+
 
 
 ## Database Setup
@@ -98,4 +99,4 @@ To launch **both** Blazor projects under the debugger in Visual Studio:
      - **Start** (launch under debugger), or
      - **Start Without Debugging** (launch without attaching the debugger).
 5. Click **OK** to save.
-6. Press **F5** (or click the Run ▶ button) to launch both apps simultaneously. Each app will open in its own browser tab with the debugger attached as configured.
+6. Press **F5** (or click the Run button) to launch both apps simultaneously. Each app will open in its own browser tab with the debugger attached as configured.
