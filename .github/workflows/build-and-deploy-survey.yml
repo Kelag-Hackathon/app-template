@@ -1,0 +1,63 @@
+name: Build & “Deploy” Survey-App (i.e. Build + Push Survey Container)
+
+on:
+  workflow_dispatch:
+    inputs:
+      teamName:
+        description: 'Team name (e.g. team1)'
+        required: true
+        default: 'team1'
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build_and_push_survey_container:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      # -------------------------------
+      # (1) Build & Test Survey-App
+      # -------------------------------
+      - name: Restore & Build Survey-App
+        working-directory: src/Survey-App
+        run: |
+          dotnet restore
+          dotnet build --no-restore --configuration Release
+
+      - name: Run Survey-App Tests
+        working-directory: tests/Survey-App
+        run: |
+          dotnet test --no-build --verbosity normal
+
+      # ---------------------------------------------------------------------
+      # (2) Build & Push Survey-App Container using docker/build-push-action
+      # ---------------------------------------------------------------------
+      - name: Build & Push Survey-App Image
+        id: push_survey
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Survey-App
+          file: src/Survey-App/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+          build-args: |
+            NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            USERNAME=${{ github.actor }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}

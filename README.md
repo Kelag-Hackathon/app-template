@@ -104,3 +104,5 @@ To launch **both** Blazor projects under the debugger in Visual Studio:
 **KEEP IN MIND:** The routes are as follows:
 1. Survey-App: localhost:*port*/survey
 1. Report-App: localhost:*port*/report
+
+test

@@ -1,0 +1,59 @@
+name: Build & “Deploy” All (i.e. Build + Push All Containers)
+
+on:
+  workflow_dispatch:
+    inputs:
+      teamName:
+        description: 'Team name (e.g. team1 or your team name)'
+        required: true
+        default: 'default-team'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build_and_push_all:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      # ----------------------------------
+      # (1) Build & Test Reporting-App
+      # ----------------------------------
+      - name: Restore & Build Reporting-App
+        working-directory: src/Reporting-App
+        run: |
+          dotnet restore
+          dotnet build --no-restore --configuration Release
+
+      - name: Run Reporting-App Tests
+        working-directory: tests/Reporting-App
+        run: |
+          dotnet test --no-build --verbosity normal
+
+      # -------------------------------------------------------------------------
+      # (2) Build & Push Reporting-App Container using docker/build-push-action
+      # -------------------------------------------------------------------------
+      - name: Build & Push Reporting-App Image
+        id: push_reporting
+        uses: docker/build-push-action@v6
+        with:
+          context: src/Reporting-App
+          file: src/Reporting-App/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+          build-args: |
+            NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            USERNAME=${{ github.actor }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
