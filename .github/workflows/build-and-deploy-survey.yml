@@ -41,7 +41,7 @@ jobs:
       - name: Run Survey-App Tests
         working-directory: tests/Survey-App
         run: |
-          dotnet test --no-build --verbosity normal
+          dotnet test --verbosity normal
 
       # ---------------------------------------------------------------------
       # (2) Build & Push Survey-App Container using docker/build-push-action

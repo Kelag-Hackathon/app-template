@@ -41,7 +41,7 @@ jobs:
         working-directory: tests/Survey-Tests
         run: |
           dotnet restore
-          dotnet test --no-build --verbosity normal
+          dotnet test --verbosity normal
 
       # ----------------------------------------------------------
       # (2) Restore, Build & Test Reporting-App (.NET Blazor)
@@ -56,7 +56,7 @@ jobs:
         working-directory: tests/Reporting-Tests
         run: |
           dotnet restore
-          dotnet test --no-build --verbosity normal
+          dotnet test --verbosity normal
 
       # ---------------------------------------------------------------------
       # (3) Build & Push Survey-App Container using docker/build-push-action
