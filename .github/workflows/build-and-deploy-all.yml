@@ -3,7 +3,7 @@ name: Build & Deploy All
 on:
   workflow_dispatch:
     inputs:
-      name:
+      teamName:
         description: 'Team Name (IMPORTANT)'
         default: 'test-team'
 
