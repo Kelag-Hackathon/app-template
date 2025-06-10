@@ -54,8 +54,8 @@ jobs:
           file: src/Survey-App/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
           build-args: |
             NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
             USERNAME=${{ github.actor }}
