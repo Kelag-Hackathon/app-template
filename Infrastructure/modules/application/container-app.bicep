@@ -1,7 +1,5 @@
 param location                         string = 'westeurope'
 param containerAppEnvironmentId        string
-param containerAppEnvironmentFullDomain string
-param containerAppEnvironmentLoadBalancerIp string
 param name                             string
 param additionalTags                   object
 param costcenter                       string
@@ -10,6 +8,7 @@ param containerImageWithVersion        string
 param targetPort                       int
 param cpu                              string = '0.25'
 param memory                           string = '0.5Gi'
+param stickySessions                   string = 'none'
 param secrets                          array = []
 param environmentVariables             array = []
 
@@ -18,7 +17,9 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   properties: {
     environmentId: containerAppEnvironmentId
+    workloadProfileName: 'Consumption'
     configuration: {
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: targetPort
@@ -29,11 +30,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           }
         ]
         stickySessions: {
-          affinity: 'none'
+          affinity: stickySessions
         }
       }
       secrets: secrets
-      registries: [ registry ]
+      registries: [
+        registry
+      ]
     }
     template: {
       containers: [
@@ -41,7 +44,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: name
           image: containerImageWithVersion
           resources: {
-            cpu: json(cpu)
+            cpu:    json(cpu)
             memory: memory
           }
           env: environmentVariables
