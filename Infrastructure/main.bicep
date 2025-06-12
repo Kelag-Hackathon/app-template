@@ -34,7 +34,12 @@ module surveyApp 'modules/application/container-app.bicep' = {
     memory:                   '1Gi'
     stickySessions:           'none'
     secrets:                  containerAppSecrets
-    environmentVariables:     []
+    environmentVariables: [
+      {
+        name:  'ConnectionStrings__DefaultConnection'
+        value: 'Server=tcp:sqlsvr-hackathondepl-ne.database.windows.net,1433;Initial Catalog=db-hackathon-shared;User ID=dbadmin;Password=Password123!;Encrypt=True;Connection Timeout=30;'
+      }
+    ]
   }
 }
 
@@ -58,6 +63,11 @@ module reportingApp 'modules/application/container-app.bicep' = {
     memory:                   '1Gi'
     stickySessions:           'none'
     secrets:                  containerAppSecrets
-    environmentVariables:     []
+    environmentVariables: [
+      {
+        name:  'ConnectionStrings__DefaultConnection'
+        value: 'Server=tcp:sqlsvr-hackathondepl-ne.database.windows.net,1433;Initial Catalog=db-hackathon-shared;User ID=dbadmin;Password=Password123!;Encrypt=True;Connection Timeout=30;'
+      }
+    ]
   }
 }
