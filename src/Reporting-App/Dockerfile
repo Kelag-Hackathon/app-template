@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-env
 WORKDIR /src
 
 # Must match the actual folder “src/Reporting-App”
-COPY ["Reporting-App/Reporting-App.csproj", "Reporting-App/"]
+COPY ["Reporting-App.csproj", "./"]
 RUN dotnet restore "Reporting-App/Reporting-App.csproj"
 
 COPY . .

@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-env
 WORKDIR /src
 
-COPY ["Survey-App/Survey-App.csproj", "Survey-App/"]
+COPY ["Survey-App.csproj", "./"]
 RUN dotnet restore "Survey-App/Survey-App.csproj"
 
 COPY . .
