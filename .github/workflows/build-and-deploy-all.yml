@@ -113,7 +113,7 @@ jobs:
         run: |
           az deployment group create \
             --resource-group rg-${{ github.event.inputs.teamName }}-apps \
-            --template-file infrastructure/main.bicep \
+            --template-file ./infrastructure/main.bicep \
             --parameters \
               teamName=${{ github.event.inputs.teamName }} \
               sharedRgName=rg-test \
