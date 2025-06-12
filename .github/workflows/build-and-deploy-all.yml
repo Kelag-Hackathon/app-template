@@ -109,10 +109,6 @@ jobs:
             --name rg-${{ github.event.inputs.teamName }}-apps \
             --location westeurope
 
-      - name: Debug show workspace
-        run: |
-          pwd
-          ls -R .
 
       - name: Deploy Container Apps
         run: |
