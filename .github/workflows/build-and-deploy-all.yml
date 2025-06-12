@@ -5,7 +5,7 @@ on:
     inputs:
       teamName:
         description: 'Team Name (IMPORTANT)'
-        default: 'test-team'
+        default: 'default-team'
 
 permissions:
   contents: read
@@ -27,6 +27,14 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '9.0.x'
+
+      # ------------------------------------------------------
+      # (0) Lower-case the repo owner for Docker tags
+      # ------------------------------------------------------
+      - name: Lower-case the repo owner
+        shell: bash
+        run: |
+          echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
       # ------------------------------------------------------
       # (1) Restore, Build & Test Survey-App (.NET Blazor)
@@ -69,8 +77,8 @@ jobs:
           file: src/Survey-App/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/survey-app-${{ github.event.inputs.name }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/survey-app-${{ github.event.inputs.name }}:${{ github.ref_name || github.head_ref }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
           build-args: |
             NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
             USERNAME=${{ github.actor }}
@@ -88,8 +96,8 @@ jobs:
           file: src/Reporting-App/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ toLower(github.repository_owner) }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
           build-args: |
             NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
             USERNAME=${{ github.actor }}

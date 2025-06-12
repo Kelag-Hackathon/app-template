@@ -25,6 +25,14 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      # ------------------------------------------------------
+      # (0) Lower-case the repo owner for Docker tags
+      # ------------------------------------------------------
+      - name: Lower-case the repo owner
+        shell: bash
+        run: |
+          echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
       # ----------------------------------
       # (1) Build & Test Reporting-App
       # ----------------------------------
