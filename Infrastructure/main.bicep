@@ -29,7 +29,7 @@ module surveyApp 'modules/application/container-app.bicep' = {
       passwordSecretRef: 'github-token'
     }
     containerImageWithVersion: surveyImage
-    targetPort:               80
+    targetPort:               8080
     cpu:                      '0.5'
     memory:                   '1Gi'
     stickySessions:           'none'
@@ -53,7 +53,7 @@ module reportingApp 'modules/application/container-app.bicep' = {
       passwordSecretRef: 'github-token'
     }
     containerImageWithVersion: reportingImage
-    targetPort:               80
+    targetPort:               8080
     cpu:                      '0.5'
     memory:                   '1Gi'
     stickySessions:           'none'
