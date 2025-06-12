@@ -16,7 +16,7 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build_and_push_all_containers:
+  build_test_push_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,23 +28,8 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
       # ------------------------------------------------------
-      # (0) Lower-case the repo owner for Docker tags
-      # ------------------------------------------------------
-      - name: Lower-case the repo owner
-        shell: bash
-        run: |
-          echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-
-      # ------------------------------------------------------
-      # (1) Restore, Build & Test Survey-App (.NET Blazor)
+      # A) Build & Test the two .NET apps
       # ------------------------------------------------------
       - name: Restore & Build Survey-App
         working-directory: src/Survey-App
@@ -54,13 +39,8 @@ jobs:
 
       - name: Run Survey-Tests
         working-directory: tests/Survey-Tests
-        run: |
-          dotnet restore
-          dotnet test --verbosity normal
+        run: dotnet test --verbosity normal
 
-      # ----------------------------------------------------------
-      # (2) Restore, Build & Test Reporting-App (.NET Blazor)
-      # ----------------------------------------------------------
       - name: Restore & Build Reporting-App
         working-directory: src/Reporting-App
         run: |
@@ -69,15 +49,27 @@ jobs:
 
       - name: Run Reporting-Tests
         working-directory: tests/Reporting-Tests
-        run: |
-          dotnet restore
-          dotnet test --verbosity normal
+        run: dotnet test --verbosity normal
 
-      # ---------------------------------------------------------------------
-      # (3) Build & Push Survey-App Container using docker/build-push-action
-      # ---------------------------------------------------------------------
+      # ------------------------------------------------------
+      # B) Lower-case owner & Log in to GHCR
+      # ------------------------------------------------------
+      - name: Lower-case the repo owner
+        shell: bash
+        run: |
+          echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      # ------------------------------------------------------
+      # C) Build & Push Docker images
+      # ------------------------------------------------------
       - name: Build & Push Survey-App Image
-        id: push_survey
         uses: docker/build-push-action@v6
         with:
           context: src/Survey-App
@@ -89,14 +81,8 @@ jobs:
           build-args: |
             NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
             USERNAME=${{ github.actor }}
-          secrets: |
-            github_token=${{ secrets.GHCR_PAT }}
 
-      # -------------------------------------------------------------------------
-      # (4) Build & Push Reporting-App Container using docker/build-push-action
-      # -------------------------------------------------------------------------
       - name: Build & Push Reporting-App Image
-        id: push_reporting
         uses: docker/build-push-action@v6
         with:
           context: src/Reporting-App
@@ -108,5 +94,34 @@ jobs:
           build-args: |
             NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
             USERNAME=${{ github.actor }}
-          secrets: |
-            github_token=${{ secrets.GHCR_PAT }}
+
+      # ------------------------------------------------------
+      # D) Azure Login & Deploy Container Apps via Bicep
+      # ------------------------------------------------------
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          tenant-id:    db6658ff-e1b5-4345-b87d-9b3302c75f8b
+          subscription: 037e3bde-632b-48d8-85cb-91acee603751
+
+      # 2. Ensure the per-team RG
+      - name: Ensure team RG
+        run: |
+          az group create \
+            --name rg-${{ github.event.inputs.teamName }}-apps \
+            --location westeurope
+
+      # 3. Deploy container apps via Bicep
+      - name: Deploy Container Apps
+        run: |
+          az deployment group create \
+            --resource-group rg-${{ github.event.inputs.teamName }}-apps \
+            --template-file infrastructure/main.bicep \
+            --parameters \
+              teamName=${{ github.event.inputs.teamName }} \
+              sharedRgName=rg-test \
+              containerEnvName=caenv-shared-westeurope \
+              registryUsername=${{ github.actor }} \
+              surveyImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
+              reportingImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
+              containerAppSecrets='[{"name":"github-token","value":"'"${{ secrets.GHCR_PAT }}"'"}]'
