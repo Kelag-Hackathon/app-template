@@ -97,12 +97,11 @@ jobs:
       # ------------------------------------------------------
       # D) Azure Login & Deploy Container Apps via Bicep
       # ------------------------------------------------------
-      - uses: azure/login@v1
+      - name: Azure Login (Service Principal)
+        uses: azure/login@v1
         with:
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
-          client-secret:   ${{ secrets.AZURE_CLIENT_SECRET }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: 037e3bde-632b-48d8-85cb-91acee603751
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
 
       - name: Ensure team RG
         run: |

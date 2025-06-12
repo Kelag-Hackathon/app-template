@@ -431,8 +431,8 @@ tarballs/
 test-results/
 **/bin/
 **/obj/
-tests/Survey-App/bin
-tests/Reporting-App/bin
+tests/Survey-Testsp/bin
+tests/Reporting-Tests/bin
 src/Survey-App/bin
 src/Reporting-App/bin
 tests/Survey-Tests/obj
