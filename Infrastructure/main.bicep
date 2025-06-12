@@ -22,10 +22,9 @@ param surveyImage             string
 param reportingImage          string
 
 @description('List of secrets (name/value) for the Container Apps')
-param containerAppSecrets array = []
+param containerAppSecrets     array = []
 
-
-// Pull in the existing Managed Environment
+// Import the existing Managed Environment
 resource caEnv 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: containerEnvName
   scope: resourceGroup(sharedRgName)
@@ -36,29 +35,24 @@ module surveyApp './shared-bicep-modules/application/container-app.bicep' = {
   name: 'deploy-survey-${teamName}'
   scope: resourceGroup()
   params: {
-    location:                        location
-    secrets:                         containerAppSecrets
-    containerAppEnvironmentId:       caEnv.id
+    location:                          location
+    containerAppEnvironmentId:         caEnv.id
     containerAppEnvironmentFullDomain: caEnv.properties.defaultDomain
     containerAppEnvironmentLoadBalancerIp: caEnv.properties.staticIp
-    name:                            'survey-${teamName}'
-    domain:                          ''
-    environment:                     ''
-    additionalTags:                  { team: teamName }
-    costcenter:                      ''
-    identityId:                      ''
+    name:                              'survey-${teamName}'
+    additionalTags:                    { team: teamName; role: 'survey' }
     registry: {
-      server:                        'ghcr.io'
-      username:                      registryUsername
-      passwordSecretRef:             'github-token'
+      server:                          'ghcr.io'
+      username:                        registryUsername
+      passwordSecretRef:               'github-token'
     }
-    containerImageWithVersion:      surveyImage
-    targetPort:                     80
-    cpu:                            '0.5'
-    memory:                         '1Gi'
-    stickySessions:                 'none'
-    secrets:                        []
-    environmentVariables:           []
+    containerImageWithVersion:        surveyImage
+    targetPort:                       80
+    cpu:                              '0.5'
+    memory:                           '1Gi'
+    stickySessions:                   'none'
+    secrets:                          containerAppSecrets
+    environmentVariables:             []
   }
 }
 
@@ -67,28 +61,23 @@ module reportingApp './shared-bicep-modules/application/container-app.bicep' = {
   name: 'deploy-report-${teamName}'
   scope: resourceGroup()
   params: {
-    location:                        location
-    secrets:                         containerAppSecrets
-    containerAppEnvironmentId:       caEnv.id
+    location:                          location
+    containerAppEnvironmentId:         caEnv.id
     containerAppEnvironmentFullDomain: caEnv.properties.defaultDomain
     containerAppEnvironmentLoadBalancerIp: caEnv.properties.staticIp
-    name:                            'report-${teamName}'
-    domain:                          ''
-    environment:                     ''
-    additionalTags:                  { team: teamName }
-    costcenter:                      ''
-    identityId:                      ''
+    name:                              'report-${teamName}'
+    additionalTags:                    { team: teamName; role: 'report' }
     registry: {
-      server:                        'ghcr.io'
-      username:                      registryUsername
-      passwordSecretRef:             'github-token'
+      server:                          'ghcr.io'
+      username:                        registryUsername
+      passwordSecretRef:               'github-token'
     }
-    containerImageWithVersion:      reportingImage
-    targetPort:                     80
-    cpu:                            '0.5'
-    memory:                         '1Gi'
-    stickySessions:                 'none'
-    secrets:                        []
-    environmentVariables:           []
+    containerImageWithVersion:        reportingImage
+    targetPort:                       80
+    cpu:                              '0.5'
+    memory:                           '1Gi'
+    stickySessions:                   'none'
+    secrets:                          containerAppSecrets
+    environmentVariables:             []
   }
 }
