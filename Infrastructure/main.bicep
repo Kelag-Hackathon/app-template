@@ -8,6 +8,7 @@ param registryUsername    string
 param surveyImage         string
 param reportingImage      string
 param containerAppSecrets array = []
+param environmentVariables array = []
 
 resource caEnv 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
   name: containerEnvName
@@ -34,12 +35,7 @@ module surveyApp 'modules/application/container-app.bicep' = {
     memory:                   '1Gi'
     stickySessions:           'none'
     secrets:                  containerAppSecrets
-    environmentVariables: [
-      {
-        name:  'ConnectionStrings__DefaultConnection'
-        value: 'Server=tcp:sqlsvr-hackathondepl-ne.database.windows.net,1433;Initial Catalog=db-hackathon-shared;User ID=dbadmin;Password=Password123!;Encrypt=True;Connection Timeout=30;'
-      }
-    ]
+    environmentVariables:     environmentVariables
   }
 }
 
@@ -64,10 +60,7 @@ module reportingApp 'modules/application/container-app.bicep' = {
     stickySessions:           'none'
     secrets:                  containerAppSecrets
     environmentVariables: [
-      {
-        name:  'ConnectionStrings__DefaultConnection'
-        value: 'Server=tcp:sqlsvr-hackathondepl-ne.database.windows.net,1433;Initial Catalog=db-hackathon-shared;User ID=dbadmin;Password=Password123!;Encrypt=True;Connection Timeout=30;'
-      }
+     
     ]
   }
 }

@@ -109,6 +109,20 @@ jobs:
             --name rg-${{ github.event.inputs.teamName }}-apps \
             --location westeurope
 
+      - name: Create per-team Survey DB on shared server
+        env:
+          TEAM: ${{ github.event.inputs.teamName }}
+          RG_SHARED: rg-test
+          SQL_SERVER: sqlsvr-hackathon-shared
+          ADMIN_PW: ${{ secrets.SURVEY_DB_PASSWORD }}
+        run: |
+          DB_NAME="surveydb-${TEAM}"
+          az sql db create \
+            --resource-group $RG_SHARED \
+            --server $SQL_SERVER \
+            --name $DB_NAME \
+            --service-objective S0
+
 
       - name: Deploy Container Apps
         run: |
@@ -122,4 +136,5 @@ jobs:
               registryUsername=${{ github.actor }} \
               surveyImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
               reportingImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
-              containerAppSecrets='[{"name":"github-token","value":"'"${{ secrets.GHCR_PAT }}"'"}]'
+              containerAppSecrets='[{"name":"github-token","value":"'"${{ secrets.GHCR_PAT }}"'"}]' \
+              environmentVariables='[{"name":"ConnectionStrings__DefaultConnection","value":"Server=tcp:sqlsvr-hackathon-shared.database.windows.net,1433;Initial Catalog=surveydb-'${{ github.event.inputs.teamName }}';User ID=dbadmin;Password='${{ secrets.SURVEY_DB_PASSWORD }}';Encrypt=True;Connection Timeout=30;"}]'
