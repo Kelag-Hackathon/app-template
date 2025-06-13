@@ -150,28 +150,28 @@ jobs:
         LOC_CORE:    ${{ env.LOC_CORE }}
         ADMIN_PW:    ${{ secrets.SURVEY_DB_PASSWORD }}
         APP_PW:      ${{ secrets.APP_DB_PASSWORD }}
-        RO_PW:       ${{ secrets.RO_DB_PASSWORD  }}
+        RO_PW:       ${{ secrets.RO_DB_PASSWORD }}
         OPENAI_KEY:  ${{ secrets.OPENAI_KEY }}
-        COMMS_KEY:   ${{ secrets.COMMS_KEY  }}
+        COMMS_KEY:   ${{ secrets.COMMS_KEY }}
       shell: bash
       run: |
+        set -e
         KV=kv-${TEAM}
 
         az keyvault create \
           --name $KV \
           --resource-group $RG_TEAM \
           --location $LOC_CORE \
-          --enable-rbac-authorization true
+          --enable-rbac-authorization false
 
         SP_APPID=$(az account show --query "user.name" -o tsv)
         SP_OBJID=$(az ad sp show --id "$SP_APPID" --query id -o tsv)
 
-        az role assignment create \
-          --assignee-object-id $SP_OBJID \
-          --role "Key Vault Secrets Officer" \
-          --scope $(az keyvault show -g $RG_TEAM -n $KV --query id -o tsv)
-
-        sleep 30
+        az keyvault set-policy \
+          --name $KV \
+          --object-id $SP_OBJID \
+          --secret-permissions get list set delete
+          --assignee-principal-type ServicePrincipal
 
         az keyvault secret set --vault-name $KV --name app-db-password --value "$APP_PW"
         az keyvault secret set --vault-name $KV --name ro-db-password  --value "$RO_PW"
