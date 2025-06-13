@@ -170,7 +170,7 @@ jobs:
         az keyvault set-policy \
           --name $KV \
           --object-id $SP_OBJID \
-          --secret-permissions get list set delete
+          --secret-permissions get list set delete \
           --assignee-principal-type ServicePrincipal
 
         az keyvault secret set --vault-name $KV --name app-db-password --value "$APP_PW"
