@@ -109,32 +109,118 @@ jobs:
             --name rg-${{ github.event.inputs.teamName }}-apps \
             --location westeurope
 
-      - name: Create per-team Survey DB on shared server
+      - name: Create team SQL server + DB
         env:
-          TEAM: ${{ github.event.inputs.teamName }}
-          RG_SHARED: rg-test
-          SQL_SERVER: sqlsvr-hackathon-shared
-          ADMIN_PW: ${{ secrets.SURVEY_DB_PASSWORD }}
+          TEAM:           ${{ github.event.inputs.teamName }}
+          RG_TEAM:        rg-${{ github.event.inputs.teamName }}-apps
+          LOC:            westeurope
+          ADMIN_LOGIN:    dbadmin
+          ADMIN_PW:       ${{ secrets.SURVEY_DB_PASSWORD }}
         run: |
+          SQL_SERVER=sqlsvr-${TEAM}
+
+          az sql server create \
+            --name $SQL_SERVER \
+            --resource-group $RG_TEAM \
+            --location $LOC \
+            --admin-user $ADMIN_LOGIN \
+            --admin-password "$ADMIN_PW"
+            
+          az sql server firewall-rule create \
+            --resource-group $RG_TEAM \
+            --server $SQL_SERVER \
+            --name AllowAzureServices \
+            --start-ip-address 0.0.0.0 \
+            --end-ip-address   0.0.0.0
+
           DB_NAME="surveydb-${TEAM}"
           az sql db create \
-            --resource-group $RG_SHARED \
-            --server $SQL_SERVER \
-            --name $DB_NAME \
+            --resource-group $RG_TEAM \
+            --server        $SQL_SERVER \
+            --name          $DB_NAME \
             --service-objective S0
 
+          echo "SQL_SERVER=$SQL_SERVER"                >> $GITHUB_ENV
+          echo "DB_NAME=$DB_NAME"                      >> $GITHUB_ENV
 
-      - name: Deploy Container Apps
+      # 3) **Key Vault** – one per team – and stash the DB password
+      - name: Provision Key Vault and store secrets
+        env:
+          TEAM:        ${{ github.event.inputs.teamName }}
+          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+          LOC:         westeurope
+          ADMIN_PW:    ${{ secrets.SURVEY_DB_PASSWORD }}
         run: |
-          az deployment group create \
-            --resource-group rg-${{ github.event.inputs.teamName }}-apps \
-            --template-file ./Infrastructure/main.bicep \
-            --parameters \
-              teamName=${{ github.event.inputs.teamName }} \
-              sharedRgName=rg-test \
-              containerEnvName=caenv-shared-westeurope \
-              registryUsername=${{ github.actor }} \
-              surveyImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
-              reportingImage=${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }} \
-              containerAppSecrets='[{"name":"github-token","value":"'"${{ secrets.GHCR_PAT }}"'"}]' \
-              environmentVariables='[{"name":"ConnectionStrings__DefaultConnection","value":"Server=tcp:sqlsvr-hackathon-shared.database.windows.net,1433;Initial Catalog=surveydb-'${{ github.event.inputs.teamName }}';User ID=dbadmin;Password='${{ secrets.SURVEY_DB_PASSWORD }}';Encrypt=True;Connection Timeout=30;"}]'
+          KV=kv-${TEAM}
+          az keyvault create \
+            --name $KV \
+            --resource-group $RG_TEAM \
+            --location $LOC \
+            --enable-rbac-authorization true
+
+          az keyvault secret set \
+            --vault-name $KV \
+            --name db-password \
+            --value "$ADMIN_PW"
+
+          echo "KV_URI=https://$KV.vault.azure.net"     >> $GITHUB_ENV
+
+      - name: Install sql extension (preview)
+        run: az extension add --name sql
+
+      - name: Create SQL users
+        env:
+          TEAM:        ${{ github.event.inputs.teamName }}
+          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+          SQL_SERVER:  sqlsvr-${{ github.event.inputs.teamName }}
+          DB_NAME:     surveydb-${{ github.event.inputs.teamName }}
+          APP_PW:      ${{ secrets.APP_DB_PASSWORD }}         
+          RO_PW:       ${{ secrets.RO_DB_PASSWORD  }}           
+        run: |
+          az sql user create \
+            --resource-group $RG_TEAM \
+            --server $SQL_SERVER \
+            --database $DB_NAME \
+            --name appuser \
+            --password "$APP_PW"
+
+
+          az sql user create \
+            --resource-group rg-test \
+            --server sqlsvr-hackathon-shared \
+            --database reportdb-shared \
+            --name ${TEAM}-ro \
+            --password "$RO_PW" \
+            --role db_datareader
+
+      - name: Store service API keys in Key Vault
+        env:
+          TEAM:        ${{ github.event.inputs.teamName }}
+          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+          KV:          kv-${{ github.event.inputs.teamName }}
+          OPENAI_KEY:  ${{ secrets.OPENAI_KEY }}             
+          COMMS_KEY:   ${{ secrets.COMMS_KEY  }}        
+        run: |
+          az keyvault secret set --vault-name $KV --name openai-key --value "$OPENAI_KEY"
+          az keyvault secret set --vault-name $KV --name comms-key  --value "$COMMS_KEY"
+          az keyvault secret set --vault-name $KV --name app-db-password --value "$APP_PW"
+          az keyvault secret set --vault-name $KV --name ro-db-password  --value "$RO_PW"
+
+
+      # 4) Deploy the two Container Apps
+      - name: Deploy Container Apps (Bicep)
+        env:
+          TEAM:        ${{ github.event.inputs.teamName }}
+          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+          REGISTRY:    ${{ env.REGISTRY }}
+          OWNER_LOWER: ${{ env.OWNER_LOWER }}
+          SHA:         ${{ github.sha }}
+          SQL_SERVER:  sqlsvr-${{ github.event.inputs.teamName }}
+          DB_NAME:     surveydb-${{ github.event.inputs.teamName }}
+          KV_URI:      https://kv-${{ github.event.inputs.teamName }}.vault.azure.net
+        run: |
+          az deployment group create --resource-group $RG_TEAM --template-file ./Infrastructure/main.bicep --parameters \
+            teamName=$TEAM sharedRgName=rg-test containerEnvName=caenv-shared-westeurope registryUsername=${{ github.actor }} \
+            surveyImage=$REGISTRY/$OWNER_LOWER/survey-app-$TEAM:$SHA reportingImage=$REGISTRY/$OWNER_LOWER/reporting-app-$TEAM:$SHA \
+            containerAppSecrets='[{"name":"github-token","value":"'${{ secrets.GHCR_PAT }}'"},{"name":"db-password","keyVaultUrl":"'$KV_URI'/secrets/app-db-password"},{"name":"openai-key","keyVaultUrl":"'$KV_URI'/secrets/openai-key"},{"name":"comms-key","keyVaultUrl":"'$KV_URI'/secrets/comms-key"}]' \
+            environmentVariables='[{"name":"ConnectionStrings__DefaultConnection","value":"Server=tcp:'$SQL_SERVER'.database.windows.net,1433;Initial Catalog='$DB_NAME';User ID=appuser;Password=@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/app-db-password);Encrypt=True;Connection Timeout=30;"},{"name":"OpenAI__Key","value":"@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/openai-key)"},{"name":"Comms__ConnectionString","value":"@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/comms-key)"}]'
