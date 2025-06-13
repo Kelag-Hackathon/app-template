@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       teamName:
-        description: 'Team Name (IMPORTANT)'
-        default: 'default-team'
+        description: "Team Name (IMPORTANT)"
+        default: "default-team"
 
 permissions:
   contents: read
@@ -14,213 +14,221 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  LOC_CORE: westeurope
+  LOC_SQL:  northeurope
 
 jobs:
   build_test_push_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # -------------------------------------------------------------------
+    # 0) checkout & .NET tool-chain
+    # -------------------------------------------------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Setup .NET 9.0
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '9.0.x'
+    - name: Setup .NET 9 SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: "9.0.x"
 
-      # ------------------------------------------------------
-      # A) Build & Test the two .NET apps
-      # ------------------------------------------------------      
-      - name: Restore & Build Survey-App
-        working-directory: src/Survey-App
-        run: |
-          dotnet restore
-          dotnet build --no-restore --configuration Release
+    # -------------------------------------------------------------------
+    # 1) build + unit-test both apps
+    # -------------------------------------------------------------------
+    - name: Restore & Build Survey-App
+      working-directory: src/Survey-App
+      run: |
+        dotnet restore
+        dotnet build --no-restore --configuration Release
 
-      - name: Run Survey-Tests
-        working-directory: tests/Survey-Tests
-        run: dotnet test --verbosity normal
+    - name: Run Survey-Tests
+      working-directory: tests/Survey-Tests
+      run: dotnet test --verbosity normal
 
-      - name: Restore & Build Reporting-App
-        working-directory: src/Reporting-App
-        run: |
-          dotnet restore
-          dotnet build --no-restore --configuration Release
+    - name: Restore & Build Reporting-App
+      working-directory: src/Reporting-App
+      run: |
+        dotnet restore
+        dotnet build --no-restore --configuration Release
 
-      - name: Run Reporting-Tests
-        working-directory: tests/Reporting-Tests
-        run: dotnet test --verbosity normal
+    - name: Run Reporting-Tests
+      working-directory: tests/Reporting-Tests
+      run: dotnet test --verbosity normal
 
-      # ------------------------------------------------------
-      # B) Lower-case owner & Log in to GHCR
-      # ------------------------------------------------------
-      - name: Lower-case the repo owner
-        shell: bash
-        run: echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+    # -------------------------------------------------------------------
+    # 2) container build & push
+    # -------------------------------------------------------------------
+    - name: Lower-case the repo owner
+      shell: bash
+      run: echo "OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
+    - name: Log in to GHCR
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GHCR_PAT }}
 
-      # ------------------------------------------------------
-      # C) Build & Push Docker images
-      # ------------------------------------------------------
-      - name: Build & Push Survey-App Image
-        uses: docker/build-push-action@v6
-        with:
-          context: src/Survey-App
-          file: src/Survey-App/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
-          build-args: |
-            NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            USERNAME=${{ github.actor }}
+    - name: Build & Push Survey-App image
+      uses: docker/build-push-action@v6
+      with:
+        context: src/Survey-App
+        file: src/Survey-App/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+          ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/survey-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+        build-args: |
+          NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          USERNAME=${{ github.actor }}
 
-      - name: Build & Push Reporting-App Image
-        uses: docker/build-push-action@v6
-        with:
-          context: src/Reporting-App
-          file: src/Reporting-App/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
-          build-args: |
-            NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
-            USERNAME=${{ github.actor }}
+    - name: Build & Push Reporting-App image
+      uses: docker/build-push-action@v6
+      with:
+        context: src/Reporting-App
+        file: src/Reporting-App/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.sha }}
+          ${{ env.REGISTRY }}/${{ env.OWNER_LOWER }}/reporting-app-${{ github.event.inputs.teamName }}:${{ github.ref_name || github.head_ref }}
+        build-args: |
+          NUGET_AUTH_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          USERNAME=${{ github.actor }}
 
-      # ------------------------------------------------------
-      # D) Azure Login & Deploy Container Apps via Bicep
-      # ------------------------------------------------------
-      - name: Azure Login (Service Principal)
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+    # -------------------------------------------------------------------
+    # 3) Azure infra provisioning
+    # -------------------------------------------------------------------
+    - name: Azure Login (service-principal)
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    - name: Ensure team RG
+      run: |
+        az group create \
+          --name rg-${{ github.event.inputs.teamName }}-apps \
+          --location $LOC_CORE
 
-      - name: Ensure team RG
-        run: |
-          az group create \
-            --name rg-${{ github.event.inputs.teamName }}-apps \
-            --location westeurope
+    - name: Create team SQL Server & DB
+      env:
+        TEAM:         ${{ github.event.inputs.teamName }}
+        RG_TEAM:      rg-${{ github.event.inputs.teamName }}-apps
+        LOC_SQL:      ${{ env.LOC_SQL }}
+        ADMIN_LOGIN:  dbadmin
+        ADMIN_PW:     ${{ secrets.SURVEY_DB_PASSWORD }}
+      run: |
+        SQL_SERVER=sqlsvr-${TEAM}
+        DB_NAME=surveydb-${TEAM}
 
-      - name: Create team SQL server + DB
-        env:
-          TEAM:           ${{ github.event.inputs.teamName }}
-          RG_TEAM:        rg-${{ github.event.inputs.teamName }}-apps
-          LOC:            northeurope
-          ADMIN_LOGIN:    dbadmin
-          ADMIN_PW:       ${{ secrets.SURVEY_DB_PASSWORD }}
-        run: |
-          SQL_SERVER=sqlsvr-${TEAM}
+        az sql server create \
+          --name $SQL_SERVER \
+          --resource-group $RG_TEAM \
+          --location $LOC_SQL \
+          --admin-user $ADMIN_LOGIN \
+          --admin-password "$ADMIN_PW"
 
-          az sql server create \
-            --name $SQL_SERVER \
-            --resource-group $RG_TEAM \
-            --location $LOC \
-            --admin-user $ADMIN_LOGIN \
-            --admin-password "$ADMIN_PW"
-            
-          az sql server firewall-rule create \
-            --resource-group $RG_TEAM \
-            --server $SQL_SERVER \
-            --name AllowAzureServices \
-            --start-ip-address 0.0.0.0 \
-            --end-ip-address   0.0.0.0
+        az sql server firewall-rule create \
+          --resource-group $RG_TEAM \
+          --server $SQL_SERVER \
+          --name AllowAzureServices \
+          --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
 
-          DB_NAME="surveydb-${TEAM}"
-          az sql db create \
-            --resource-group $RG_TEAM \
-            --server        $SQL_SERVER \
-            --name          $DB_NAME \
-            --service-objective S0
+        az sql db create \
+          --resource-group $RG_TEAM \
+          --server $SQL_SERVER \
+          --name   $DB_NAME \
+          --service-objective S0
 
-          echo "SQL_SERVER=$SQL_SERVER"                >> $GITHUB_ENV
-          echo "DB_NAME=$DB_NAME"                      >> $GITHUB_ENV
+        echo "SQL_SERVER=$SQL_SERVER" >> $GITHUB_ENV
+        echo "DB_NAME=$DB_NAME"       >> $GITHUB_ENV
 
-      # 3) **Key Vault** – one per team – and stash the DB password
-      - name: Provision Key Vault and store secrets
-        env:
-          TEAM:        ${{ github.event.inputs.teamName }}
-          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
-          LOC:         westeurope
-          ADMIN_PW:    ${{ secrets.SURVEY_DB_PASSWORD }}
-        run: |
-          KV=kv-${TEAM}
-          az keyvault create \
-            --name $KV \
-            --resource-group $RG_TEAM \
-            --location $LOC \
-            --enable-rbac-authorization true
+    - name: Provision Key Vault and store secrets
+      env:
+        TEAM:        ${{ github.event.inputs.teamName }}
+        RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+        LOC_CORE:    ${{ env.LOC_CORE }}
+        ADMIN_PW:    ${{ secrets.SURVEY_DB_PASSWORD }}
+        APP_PW:      ${{ secrets.APP_DB_PASSWORD }}
+        RO_PW:       ${{ secrets.RO_DB_PASSWORD  }}
+        OPENAI_KEY:  ${{ secrets.OPENAI_KEY }}
+        COMMS_KEY:   ${{ secrets.COMMS_KEY  }}
+      shell: bash
+      run: |
+        KV=kv-${TEAM}
 
-          az keyvault secret set \
-            --vault-name $KV \
-            --name db-password \
-            --value "$ADMIN_PW"
+        az keyvault create \
+          --name $KV \
+          --resource-group $RG_TEAM \
+          --location $LOC_CORE \
+          --enable-rbac-authorization true
 
-          echo "KV_URI=https://$KV.vault.azure.net"     >> $GITHUB_ENV
+        SP_ID=$AZURE_CLIENT_ID
+        az role assignment create \
+          --assignee $SP_ID \
+          --role "Key Vault Secrets Officer" \
+          --scope $(az keyvault show -n $KV -g $RG_TEAM --query id -o tsv)
 
-      - name: Install sql extension (preview)
-        run: az extension add --name sql
+        sleep 30
 
-      - name: Create SQL users
-        env:
-          TEAM:        ${{ github.event.inputs.teamName }}
-          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
-          SQL_SERVER:  sqlsvr-${{ github.event.inputs.teamName }}
-          DB_NAME:     surveydb-${{ github.event.inputs.teamName }}
-          APP_PW:      ${{ secrets.APP_DB_PASSWORD }}         
-          RO_PW:       ${{ secrets.RO_DB_PASSWORD  }}           
-        run: |
-          az sql user create \
-            --resource-group $RG_TEAM \
-            --server $SQL_SERVER \
-            --database $DB_NAME \
-            --name appuser \
-            --password "$APP_PW"
+        az keyvault secret set --vault-name $KV --name app-db-password --value "$APP_PW"
+        az keyvault secret set --vault-name $KV --name ro-db-password  --value "$RO_PW"
+        az keyvault secret set --vault-name $KV --name openai-key     --value "$OPENAI_KEY"
+        az keyvault secret set --vault-name $KV --name comms-key      --value "$COMMS_KEY"
 
+        echo "KV_URI=https://$KV.vault.azure.net" >> $GITHUB_ENV
 
-          az sql user create \
-            --resource-group rg-test \
-            --server sqlsvr-hackathon-shared \
-            --database reportdb-shared \
-            --name ${TEAM}-ro \
-            --password "$RO_PW" \
-            --role db_datareader
+    - name: Install sql extension
+      run: az extension add --name sql --yes --upgrade
 
-      - name: Store service API keys in Key Vault
-        env:
-          TEAM:        ${{ github.event.inputs.teamName }}
-          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
-          KV:          kv-${{ github.event.inputs.teamName }}
-          OPENAI_KEY:  ${{ secrets.OPENAI_KEY }}             
-          COMMS_KEY:   ${{ secrets.COMMS_KEY  }}        
-        run: |
-          az keyvault secret set --vault-name $KV --name openai-key --value "$OPENAI_KEY"
-          az keyvault secret set --vault-name $KV --name comms-key  --value "$COMMS_KEY"
-          az keyvault secret set --vault-name $KV --name app-db-password --value "$APP_PW"
-          az keyvault secret set --vault-name $KV --name ro-db-password  --value "$RO_PW"
+    - name: Create SQL users
+      env:
+        TEAM:        ${{ github.event.inputs.teamName }}
+        RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
+        SQL_SERVER:  sqlsvr-${{ github.event.inputs.teamName }}
+        DB_NAME:     surveydb-${{ github.event.inputs.teamName }}
+        APP_PW:      ${{ secrets.APP_DB_PASSWORD }}
+        RO_PW:       ${{ secrets.RO_DB_PASSWORD  }}
+      shell: bash
+      run: |
+        az sql user create \
+          --resource-group $RG_TEAM \
+          --server $SQL_SERVER \
+          --database $DB_NAME \
+          --name appuser \
+          --password "$APP_PW"
 
+        az sql user create \
+          --resource-group rg-test \
+          --server sqlsvr-hackathon-shared \
+          --database reportdb-shared \
+          --name ${TEAM}-ro \
+          --password "$RO_PW" \
+          --role db_datareader || echo "RO user maybe already exists – continuing"
 
-      # 4) Deploy the two Container Apps
-      - name: Deploy Container Apps (Bicep)
-        env:
-          TEAM:        ${{ github.event.inputs.teamName }}
-          RG_TEAM:     rg-${{ github.event.inputs.teamName }}-apps
-          REGISTRY:    ${{ env.REGISTRY }}
-          OWNER_LOWER: ${{ env.OWNER_LOWER }}
-          SHA:         ${{ github.sha }}
-          SQL_SERVER:  sqlsvr-${{ github.event.inputs.teamName }}
-          DB_NAME:     surveydb-${{ github.event.inputs.teamName }}
-          KV_URI:      https://kv-${{ github.event.inputs.teamName }}.vault.azure.net
-        run: |
-          az deployment group create --resource-group $RG_TEAM --template-file ./Infrastructure/main.bicep --parameters \
-            teamName=$TEAM sharedRgName=rg-test containerEnvName=caenv-shared-westeurope registryUsername=${{ github.actor }} \
-            surveyImage=$REGISTRY/$OWNER_LOWER/survey-app-$TEAM:$SHA reportingImage=$REGISTRY/$OWNER_LOWER/reporting-app-$TEAM:$SHA \
+    # -------------------------------------------------------------------
+    # 4) deploy Container Apps via Bicep
+    # -------------------------------------------------------------------
+    - name: Deploy Container Apps (Bicep)
+      env:
+        TEAM:         ${{ github.event.inputs.teamName }}
+        RG_TEAM:      rg-${{ github.event.inputs.teamName }}-apps
+        REGISTRY:     ${{ env.REGISTRY }}
+        OWNER_LOWER:  ${{ env.OWNER_LOWER }}
+        SHA:          ${{ github.sha }}
+        SQL_SERVER:   sqlsvr-${{ github.event.inputs.teamName }}
+        DB_NAME:      surveydb-${{ github.event.inputs.teamName }}
+        KV_URI:       https://kv-${{ github.event.inputs.teamName }}.vault.azure.net
+      run: |
+        az deployment group create \
+          --resource-group $RG_TEAM \
+          --template-file ./Infrastructure/main.bicep \
+          --parameters \
+            teamName=$TEAM \
+            sharedRgName=rg-test \
+            containerEnvName=caenv-shared-westeurope \
+            registryUsername=${{ github.actor }} \
+            surveyImage=$REGISTRY/$OWNER_LOWER/survey-app-$TEAM:$SHA \
+            reportingImage=$REGISTRY/$OWNER_LOWER/reporting-app-$TEAM:$SHA \
             containerAppSecrets='[{"name":"github-token","value":"'${{ secrets.GHCR_PAT }}'"},{"name":"db-password","keyVaultUrl":"'$KV_URI'/secrets/app-db-password"},{"name":"openai-key","keyVaultUrl":"'$KV_URI'/secrets/openai-key"},{"name":"comms-key","keyVaultUrl":"'$KV_URI'/secrets/comms-key"}]' \
             environmentVariables='[{"name":"ConnectionStrings__DefaultConnection","value":"Server=tcp:'$SQL_SERVER'.database.windows.net,1433;Initial Catalog='$DB_NAME';User ID=appuser;Password=@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/app-db-password);Encrypt=True;Connection Timeout=30;"},{"name":"OpenAI__Key","value":"@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/openai-key)"},{"name":"Comms__ConnectionString","value":"@Microsoft.KeyVault(SecretUri='$KV_URI'/secrets/comms-key)"}]'
