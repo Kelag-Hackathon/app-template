@@ -113,7 +113,7 @@ jobs:
         env:
           TEAM:           ${{ github.event.inputs.teamName }}
           RG_TEAM:        rg-${{ github.event.inputs.teamName }}-apps
-          LOC:            westeurope
+          LOC:            northeurope
           ADMIN_LOGIN:    dbadmin
           ADMIN_PW:       ${{ secrets.SURVEY_DB_PASSWORD }}
         run: |
